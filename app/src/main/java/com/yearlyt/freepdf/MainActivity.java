@@ -8,17 +8,21 @@ import android.provider.OpenableColumns;
 import android.database.Cursor;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 
 public class MainActivity extends Activity {
     private static final int PICK_PDF = 41;
     private WebView webView;
+    private volatile File currentFile;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -29,9 +33,17 @@ public class MainActivity extends Activity {
         s.setAllowContentAccess(true);
         s.setAllowFileAccessFromFileURLs(true);
         s.setAllowUniversalAccessFromFileURLs(true);
-        s.setBuiltInZoomControls(false);
         s.setDomStorageEnabled(true);
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                if (url.startsWith("https://app.local/document.pdf") && currentFile != null && currentFile.exists()) {
+                    try { return new WebResourceResponse("application/pdf", null, new FileInputStream(currentFile)); }
+                    catch (Exception ignored) {}
+                }
+                return super.shouldInterceptRequest(view, request);
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new AppBridge(), "Android");
         setContentView(webView);
@@ -64,9 +76,10 @@ public class MainActivity extends Activity {
                 byte[] buffer = new byte[65536]; int n;
                 while ((n = in.read(buffer)) > 0) fos.write(buffer, 0, n);
             }
-            String url = out.toURI().toString().replace("'", "%27");
+            currentFile = out;
             String name = fileName(uri).replace("\\", "\\\\").replace("'", "\\'");
-            webView.evaluateJavascript("loadPdf('" + url + "','" + name + "')", null);
+            String servedUrl = "https://app.local/document.pdf?v=" + System.currentTimeMillis();
+            webView.evaluateJavascript("loadPdf('" + servedUrl + "','" + name + "')", null);
         } catch (Exception e) {
             Toast.makeText(this, "Could not open this PDF", Toast.LENGTH_LONG).show();
         }

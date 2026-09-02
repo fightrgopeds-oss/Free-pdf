@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
         b.setPadding(dp(18), 0, dp(18), 0); return b;
     }
 
-    private View roundRect(int color, int radius) {
+    private GradientDrawable roundRect(int color, int radius) {
         GradientDrawable d = new GradientDrawable(); d.setColor(color); d.setCornerRadius(dp(radius)); return d;
     }
 
